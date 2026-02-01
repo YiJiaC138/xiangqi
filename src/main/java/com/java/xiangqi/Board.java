@@ -140,8 +140,7 @@ public class Board {
             return; // If the player is not in check, no need to evaluate checkmate
         } else{
             /* Player is in check, we need to evaluate if the player is in checkmate
-             Get any valid moves for the current player and simulate each move and evaluate
-                if the player is still in check after the move.
+             Get any valid moves for the current player. If there are valid moves, it's not checkmate.
              */
             for (List<Position> row : board){
                 for (Position pos : row){
@@ -153,32 +152,18 @@ public class Board {
                         continue; // Skip pieces that do not belong to the current player
                     }
                     List<Move> validMoves = getValidMoves(piece, pos);
-                    // For each valid move, we simulate the move and check if the player is still in check
-                    for (Move move : validMoves) {
-                        // Save the current state of the board
-                        saveState();
-                        // Apply the move
-                        move.applyMove();
-                        // Check if the player is still in check after the move
-                        boolean stillInCheck = evaluateCheck(currentTurn);
-                        // If the player is not in check after the move, we can break out of the loop
-                        // There exist a valid move that can save the player from check
-                        if (!stillInCheck) {
-                            playerInCheckMate.put(currentTurn, false);
-                            System.out.println("Player " + currentTurn + " is not in checkmate.");
-                            return; // Player is not in checkmate
-                        }
-                        // Restore the board state
-                        restoreBoardState();
-
+                    
+                    // Since getValidMoves now ensures moves do not result in self-check,
+                    // any returned move is a valid escape.
+                    if (!validMoves.isEmpty()) {
+                        playerInCheckMate.put(currentTurn, false);
+                        System.out.println("Player " + currentTurn + " is not in checkmate.");
+                        return; // Player is not in checkmate
                     }
-
                 }
             }
             // If we reach here, it means the player has no valid moves to escape check
             playerInCheckMate.put(currentTurn, true);
-
-
         }
     }
 
@@ -189,9 +174,13 @@ public class Board {
     @return true if the player is in check, false otherwise.
      */
     public boolean evaluateCheck(Colour player){
+        return evaluateCheck(player, this.board);
+    }
+
+    public boolean evaluateCheck(Colour player, List<List<Position>> boardToCheck){
         // Check if the current player's general is in check
         // Iterate the board and generate a list of valid moves for the current player
-        for (List<Position> row : board) {
+        for (List<Position> row : boardToCheck) {
             for (Position pos : row) {
                 if (pos.isEmpty()) {
                     continue; // Skip empty positions
@@ -199,7 +188,7 @@ public class Board {
                 ChessPiece piece = pos.getPiece();
                 if (piece != null && piece.getColour() != player) {
                     //System.out.println("Evaluating piece: " + piece.getSymbol() + " at position (" + pos.getX() + "," + pos.getY() + ")");
-                    List<Move> validMoves = getValidMoves(piece, pos);
+                    List<Move> validMoves = piece.getValidMoves(pos, boardToCheck);
                     // If the general is in check, return true
                     for (Move move : validMoves) {
                         Position targetPos = move.getDestination();
@@ -424,6 +413,7 @@ public class Board {
                         // If the move is valid, apply the move
                         move.applyMove();
                         switchTurn();
+                        evaluateCheckMate();
 
                         return;
                     }
@@ -442,7 +432,32 @@ public class Board {
      * @return A list of valid moves for the piece.
      */
     public List<Move> getValidMoves(ChessPiece piece, Position pos){
-        return piece.getValidMoves(pos, board);
+        List<Move> validMoves = piece.getValidMoves(pos, board);
+        List<Move> legalMoves = new ArrayList<>();
+        for (Move move : validMoves) {
+            // Duplicate board
+            List<List<Position>> tempBoard = new ArrayList<>();
+            for (List<Position> row : board) {
+                List<Position> rowCopy = new ArrayList<>();
+                for (Position p : row) {
+                    rowCopy.add(new Position(p.getX(), p.getY(), p.getPiece()));
+                }
+                tempBoard.add(rowCopy);
+            }
+
+            // Apply move
+            Position fromPos = tempBoard.get(move.getSource().getX()).get(move.getSource().getY());
+            Position toPos = tempBoard.get(move.getDestination().getX()).get(move.getDestination().getY());
+
+            toPos.setPiece(fromPos.getPiece());
+            fromPos.emptyPiece();
+
+            // Check
+            if (!evaluateCheck(piece.getColour(), tempBoard)) {
+                legalMoves.add(move);
+            }
+        }
+        return legalMoves;
     }
 
     public void DisplayBoard(){

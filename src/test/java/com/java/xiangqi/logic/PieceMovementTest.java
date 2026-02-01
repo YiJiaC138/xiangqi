@@ -205,9 +205,12 @@ class PieceMovementTest {
         List<Position> edgeDest = edgeGeneral.getValidMoves(edgeBoard.getPosition(7, 3), edgeBoard.getBoard())
                                             .stream().map(Move::getDestination).toList();
                                             
-        //assertTrue(edgeDest.stream().anyMatch(p -> p.getX() == 7 && p.getY() == 4), "Should move right inside palace");
+        // Only one move for red General
+        assertEquals(1, edgeDest.size(), "General at edge should have 1 move");
         assertFalse(edgeDest.stream().anyMatch(p -> p.getX() == 7 && p.getY() == 2), "Should NOT move left outside palace");
         assertFalse(edgeDest.stream().anyMatch(p -> p.getX() == 6 && p.getY() == 3), "Should NOT move up outside palace");
+        // Cannot move to the center of the palace due to flying general rule
+        assertFalse(edgeDest.stream().anyMatch(p -> p.getX() == 7 && p.getY() == 4), "Should NOT move to center of palace due to flying general rule");
     }
 
     @Test
