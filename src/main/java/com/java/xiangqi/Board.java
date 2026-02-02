@@ -32,7 +32,7 @@ public class Board {
     private HashMap<Colour, Boolean> playerInCheck = new HashMap<>();
     private HashMap<Colour, Boolean> playerInCheckMate = new HashMap<>();
     // Track a stack of board states
-    private Stack<List<List<Position>>> boardStates = new Stack<>();
+    private Stack<GameState> boardStates = new Stack<>();
     // List of chess pieces
     private ArrayList<ChessPiece> pieces = new ArrayList<>();
 
@@ -60,6 +60,7 @@ public class Board {
     public Board() {
         this.board = new ArrayList<>();
         generateBoard(initialSetup);
+        saveState();
     }
     // It's possible to create an instance of a board with a custom board input
     public Board(String[][] boardInput, Colour startingTurn) {
@@ -102,7 +103,12 @@ public class Board {
      */
     public void restoreBoardState(){
         if (!boardStates.isEmpty()) {
-            board = boardStates.pop();
+            GameState state = boardStates.pop();
+            board = state.board;
+            currentTurn = state.currentTurn;
+            playerInCheck = state.playerInCheck;
+            playerInCheckMate = state.playerInCheckMate;
+            gameOver = state.gameOver;
         } else {
             System.out.println("No previous board state to restore.");
         }
@@ -120,8 +126,25 @@ public class Board {
             }
             currentState.add(rowCopy);
         }
-        boardStates.push(currentState);
+        boardStates.push(new GameState(currentState, currentTurn, new HashMap<>(playerInCheck), new HashMap<>(playerInCheckMate), gameOver));
     }
+    /**
+     * Clear all the state of the game
+     * Revert to the initial state of the game
+     */
+    public void clearAllStates(){
+        boardStates.clear();
+        // Set all attributes to its initial state
+        board.clear();
+        pieces.clear();
+        playerInCheck.clear();
+        playerInCheckMate.clear();
+        currentTurn = Colour.RED;
+        gameOver = false;
+        inCheck = false;
+        generateBoard(initialSetup);
+    }
+
 
     /**
      * Evaluates if the current player is in checkmate.
@@ -478,4 +501,5 @@ public class Board {
         }
         System.out.println(output);
     }
+
 }

@@ -37,13 +37,15 @@ public class Controller {
 
     @PostMapping("/reset")
     public ResponseEntity<Map<String, Object>> resetGame() {
-        return startGame();
+        board.clearAllStates();
+        return ResponseEntity.ok(getBoardStatus());
     }
 
     @PostMapping("/move")
     public ResponseEntity<Map<String, Object>> makeMove(@RequestBody GameRequest request) {
         try {
             String move = request.getPayload();
+            board.saveState();
             board.playTurn(move);
             return ResponseEntity.ok(getBoardStatus());
         } catch (IllegalArgumentException e) {
