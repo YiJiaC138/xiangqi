@@ -51,10 +51,12 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             boolean updated = false;
             synchronized (room) {
                 if (session.equals(room.getRedPlayer())) {
+                    System.out.println("Removing Red Player " + session.getId() + " from room " + room.getId());
                     room.setRedPlayer(null);
                     updated = true;
                 }
                 if (session.equals(room.getBlackPlayer())) {
+                    System.out.println("Removing Black Player " + session.getId() + " from room " + room.getId());
                     room.setBlackPlayer(null);
                     updated = true;
                 }
@@ -110,6 +112,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             case "UNDO":
                 handleUndo(session, msg);
                 break;
+            case "LEAVE_GAME":
+                handleLeaveGame(session, msg);
+                break;
             default:
                 sendError(session, "Unknown message type: " + type);
         }
@@ -139,14 +144,17 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         synchronized (room) {
             boolean success = false;
+            System.out.println("Processing JOIN_GAME for Room " + roomId + ", Color=" + color + ", Session=" + session.getId());
             if ("red".equalsIgnoreCase(color)) {
-                if (room.getRedPlayer() == null) {
+                if (room.getRedPlayer() == null || !room.getRedPlayer().isOpen()) {
                     room.setRedPlayer(session);
+                    System.out.println("Joined Room " + roomId + " as RED");
                     success = true;
                 }
             } else if ("black".equalsIgnoreCase(color)) {
-                if (room.getBlackPlayer() == null) {
+                if (room.getBlackPlayer() == null || !room.getBlackPlayer().isOpen()) {
                     room.setBlackPlayer(session);
+                    System.out.println("Joined Room " + roomId + " as BLACK");
                     success = true;
                 }
             } else {
@@ -218,6 +226,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             boolean isPlayerBlack = session.equals(room.getBlackPlayer());
 
             if ((isRedTurn && !isPlayerRed) || (!isRedTurn && !isPlayerBlack)) {
+                System.out.println("Turn Error in Room " + roomId + ": Turn=" + board.getCurrentTurn() +
+                        ", Session=" + session.getId() +
+                        ", RedPlayer=" + (room.getRedPlayer() != null ? room.getRedPlayer().getId() : "null") +
+                        ", BlackPlayer=" + (room.getBlackPlayer() != null ? room.getBlackPlayer().getId() : "null"));
                 sendError(session, "Not your turn");
                 return;
             }
@@ -309,6 +321,60 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
              room.getBoard().restoreBoardState();
              broadcastGameState(room);
         }
+    }
+
+    private void handleLeaveGame(WebSocketSession session, Map<String, Object> msg) throws IOException {
+        String roomId = (String) msg.get("roomId");
+        if (roomId == null) {
+            Map<String, Object> p = (Map<String, Object>) msg.get("payload");
+            if (p != null) {
+                roomId = (String) p.get("roomId");
+            }
+        }
+        
+        if (roomId == null) return;
+
+        Room room = rooms.get(roomId);
+        if (room == null) return;
+
+        boolean wasPlaying = false;
+        WebSocketSession opponent = null;
+
+        synchronized (room) {
+            boolean isRed = session.equals(room.getRedPlayer());
+            boolean isBlack = session.equals(room.getBlackPlayer());
+
+            if (!isRed && !isBlack) {
+                return;
+            }
+            
+            wasPlaying = "playing".equals(room.getStatus());
+
+            if (isRed) {
+                room.setRedPlayer(null);
+                opponent = room.getBlackPlayer();
+            } else {
+                room.setBlackPlayer(null);
+                opponent = room.getRedPlayer();
+            }
+            
+            room.setStatus("waiting");
+            
+            if (room.getRedPlayer() == null && room.getBlackPlayer() == null) {
+                 room.getBoard().clearAllStates();
+            }
+        }
+
+        if (wasPlaying && opponent != null && opponent.isOpen()) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("type", "OPPONENT_LEFT");
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("message", "Your opponent has left the game.");
+            response.put("payload", payload);
+            sendMessage(opponent, response);
+        }
+
+        broadcastRoomUpdate();
     }
 
     private void broadcastRoomUpdate() {
