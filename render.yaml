@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: xiangqi-backend
+    env: docker
+    plan: free
+    branch: dev
+    envVars:
+      - key: PORT
+        sync: false
