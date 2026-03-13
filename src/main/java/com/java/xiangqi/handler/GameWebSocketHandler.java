@@ -235,9 +235,58 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
 
             try {
+                // Pre-move logic: Capture move details for logging
+                String[] parts = moveStr.split("");
+                int fromX = Integer.parseInt(parts[0]);
+                int fromY = Integer.parseInt(parts[1]);
+                int toX = Integer.parseInt(parts[2]);
+                int toY = Integer.parseInt(parts[3]);
+
+                ChessPiece sourcePiece = board.getPieceAtPosition(fromX, fromY);
+                ChessPiece capturedPiece = board.getPieceAtPosition(toX, toY);
+                
+                String playerColor = sourcePiece != null ? sourcePiece.getColour().toString().toLowerCase() : "";
+                String pieceChar = sourcePiece != null ? sourcePiece.getSymbol() : "";
+                String capturedChar = capturedPiece != null ? capturedPiece.getSymbol() : null;
+
                 board.saveState();
                 board.playTurn(moveStr);
                 
+                // Post-move logic: Check game state for log
+                boolean isCheck = board.isInCheck(board.getCurrentTurn());
+                boolean isCheckmate = board.isInCheckMate(board.getCurrentTurn());
+
+                // Broadcast MOVE_LOG
+                Map<String, Object> moveLog = new HashMap<>();
+                moveLog.put("type", "MOVE_LOG");
+                
+                Map<String, Object> logPayload = new HashMap<>();
+                logPayload.put("player", playerColor);
+                logPayload.put("pieceChar", pieceChar);
+                
+                Map<String, Integer> sourceMap = new HashMap<>();
+                sourceMap.put("x", fromX);
+                sourceMap.put("y", fromY);
+                logPayload.put("source", sourceMap);
+                
+                Map<String, Integer> targetMap = new HashMap<>();
+                targetMap.put("x", toX);
+                targetMap.put("y", toY);
+                logPayload.put("target", targetMap);
+                
+                if (capturedChar != null) {
+                    logPayload.put("capturedChar", capturedChar);
+                }
+                
+                logPayload.put("isCheck", isCheck);
+                logPayload.put("isCheckmate", isCheckmate);
+                
+                moveLog.put("payload", logPayload);
+                
+                // Broadcast to both players
+                if (room.getRedPlayer() != null) sendMessage(room.getRedPlayer(), moveLog);
+                if (room.getBlackPlayer() != null) sendMessage(room.getBlackPlayer(), moveLog);
+
                 // Broadcast GAME_STATE to both
                 broadcastGameState(room);
             } catch (Exception e) {
