@@ -24,6 +24,10 @@ This is the backend application for a Xiangqi (Chinese Chess) game, built with J
   - [x] **Undo Move**: API support for reverting the last move (`/api/game/undo`).
   - [x] **State Persistence**: Maintains history for undo operations.
 
-- [ ] **Multiplayer & Networking**:
-  - [ ] Game Lobby / Room management.
-  - [ ] WebSocket support for real-time multiplayer.
+- [x] **Multiplayer & Networking**:
+  - [x] Game Lobby / Room management.
+  - [x] WebSocket support for real-time multiplayer.
+
+  Front Logic can be found [here](https://github.com/YiJiaC138/xiangqi-front)
+
+## [DEPLOYED HERE](https://xiangqi-front.onrender.com) (Takes awhile upon bootup)
